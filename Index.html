@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Go Bird</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: 'Segoe UI', sans-serif;
+      background: #70c5ce;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .ad-slot {
+      width: 100%;
+      height: 60px;
+      max-height: 15vh;
+      text-align: center;
+      background: transparent;
+    }
+
+    .ad-slot ins {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    #gameWrapper {
+      flex: 1;
+      position: relative;
+      width: 100%;
+      overflow: hidden;
+      background: #70c5ce;
+    }
+
+    #gameCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      background: url('https://raw.githubusercontent.com/sourabhv/FlapPyBird/master/assets/sprites/background-day.png') no-repeat center center;
+      background-size: cover;
+    }
+
+    .game-button {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 15px 30px;
+      font-size: 20px;
+      background: linear-gradient(135deg, #1abc9c, #16a085);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+      transition: transform 0.2s, box-shadow 0.2s;
+      z-index: 10;
+    }
+
+    .game-button:hover {
+      transform: translate(-50%, -52%);
+      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.4);
+    }
+
+    #restartButton {
+      display: none;
+    }
+
+    #highScoreDisplay {
+      position: absolute;
+      top: 10px;
+      right: 20px;
+      font-size: 18px;
+      font-weight: bold;
+      color: #fff;
+      background: rgba(0,0,0,0.4);
+      padding: 6px 14px;
+      border-radius: 8px;
+      z-index: 5;
+    }
+  </style>
+
+  <!-- AdSense -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+</head>
+<body>
+
+  <!-- TOP AD -->
+  <div class="ad-slot">
+    <ins class="adsbygoogle"
+         data-ad-client="7617541164429108/6575688619"
+         data-ad-slot="7617541164429108/65756886191"
+         data-ad-format="auto"
+         data-full-width-responsive="true"></ins>
+    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+  </div>
+
+  <!-- FULL SCREEN GAME -->
+  <div id="gameWrapper">
+    <canvas id="gameCanvas"></canvas>
+    <div id="highScoreDisplay">High Score: 0</div>
+    <button id="startButton" class="game-button">Start Game</button>
+    <button id="restartButton" class="game-button">Restart Game</button>
+  </div>
+
+  <!-- BOTTOM AD -->
+  <div class="ad-slot">
+    <ins class="adsbygoogle"
+         data-ad-client="ca-pub-XXXXXXXXXXXXXXX"
+         data-ad-slot="2222222222"
+         data-ad-format="auto"
+         data-full-width-responsive="true"></ins>
+    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+  </div>
+
+  <!-- Audio -->
+  <audio id="bgMusic" src="https://cdn.pixabay.com/audio/2023/03/27/audio_11b8a7f5b2.mp3" loop></audio>
+  <audio id="flapSound" src="https://cdn.pixabay.com/audio/2022/03/26/audio_b6e012a0d5.mp3"></audio>
+  <audio id="scoreSound" src="https://cdn.pixabay.com/audio/2022/03/15/audio_73515f6bc1.mp3"></audio>
+
+  <!-- Script -->
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const startButton = document.getElementById("startButton");
+    const restartButton = document.getElementById("restartButton");
+    const highScoreDisplay = document.getElementById("highScoreDisplay");
+
+    const bgMusic = document.getElementById("bgMusic");
+    const flapSound = document.getElementById("flapSound");
+    const scoreSound = document.getElementById("scoreSound");
+
+    let highScore = localStorage.getItem("highScore") || 0;
+    highScoreDisplay.textContent = `High Score: ${highScore}`;
+
+    function resizeCanvas() {
+      canvas.width = canvas.clientWidth;
+      canvas.height = canvas.clientHeight;
+    }
+
+    window.addEventListener("load", resizeCanvas);
+    window.addEventListener("resize", resizeCanvas);
+
+    const birdFrames = [
+      "https://raw.githubusercontent.com/sourabhv/FlapPyBird/master/assets/sprites/yellowbird-upflap.png",
+      "https://raw.githubusercontent.com/sourabhv/FlapPyBird/master/assets/sprites/yellowbird-midflap.png",
+      "https://raw.githubusercontent.com/sourabhv/FlapPyBird/master/assets/sprites/yellowbird-downflap.png"
+    ].map(src => Object.assign(new Image(), { src }));
+
+    const deadBirdImg = Object.assign(new Image(), { src: "https://raw.githubusercontent.com/sourabhv/FlapPyBird/master/assets/sprites/redbird-midflap.png" });
+    const pipeNorth = Object.assign(new Image(), { src: "https://raw.githubusercontent.com/sourabhv/FlapPyBird/master/assets/sprites/pipe-green.png" });
+    const pipeSouth = Object.assign(new Image(), { src: "https://raw.githubusercontent.com/sourabhv/FlapPyBird/master/assets/sprites/pipe-green.png" });
+    const bg = Object.assign(new Image(), { src: "https://raw.githubusercontent.com/sourabhv/FlapPyBird/master/assets/sprites/background-day.png" });
+
+    let bird = { x: 50, y: 150, width: 34, height: 24, gravity: 0.4, lift: -5.3, velocity: 0 };
+    let pipes = [];
+    let gap = 150;
+    let score = 0;
+    let gameOver = false;
+    let frameIndex = 0;
+    let frameTimer = 0;
+
+    function playSound(sound) {
+      if (!sound) return;
+      try {
+        sound.currentTime = 0;
+        sound.play();
+      } catch (err) {
+        console.error("Sound error:", err);
+      }
+    }
+
+    function jumpOrRestart() {
+      if (gameOver) {
+        showRestartButton();
+      } else {
+        bird.velocity = bird.lift;
+        playSound(flapSound);
+      }
+    }
+
+    document.addEventListener("keydown", jumpOrRestart);
+    document.addEventListener("touchstart", e => {
+      e.preventDefault();
+      jumpOrRestart();
+    }, { passive: false });
+
+    function draw() {
+      if (gameOver) return;
+
+      ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
+
+      for (let i = 0; i < pipes.length; i++) {
+        let pipe = pipes[i];
+
+        ctx.save();
+        ctx.translate(pipe.x + pipeNorth.width / 2, pipe.y + pipeNorth.height / 2);
+        ctx.scale(1, -1);
+        ctx.drawImage(pipeNorth, -pipeNorth.width / 2, -pipeNorth.height / 2);
+        ctx.restore();
+
+        ctx.drawImage(pipeSouth, pipe.x, pipe.y + pipeNorth.height + gap);
+
+        pipe.x -= 2;
+
+        if (pipe.x === canvas.width / 2) {
+          pipes.push({ x: canvas.width, y: Math.floor(Math.random() * -200) });
+        }
+
+        if (
+          bird.x + bird.width > pipe.x &&
+          bird.x < pipe.x + pipeNorth.width &&
+          (bird.y < pipe.y + pipeNorth.height || bird.y + bird.height > pipe.y + pipeNorth.height + gap)
+        ) {
+          gameOver = true;
+        }
+
+        if (pipe.x + pipeNorth.width === bird.x) {
+          score++;
+          playSound(scoreSound);
+        }
+      }
+
+      bird.velocity += bird.gravity;
+      bird.y += bird.velocity;
+
+      if (bird.y + bird.height >= canvas.height || bird.y <= 0) {
+        gameOver = true;
+      }
+
+      let currentBirdImg = gameOver ? deadBirdImg : birdFrames[frameIndex];
+      ctx.drawImage(currentBirdImg, bird.x, bird.y);
+
+      ctx.fillStyle = "#fff";
+      ctx.font = "24px Arial";
+      ctx.fillText("Score: " + score, 10, 30);
+
+      if (gameOver) {
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#fff";
+        ctx.font = "36px Arial";
+        ctx.fillText("Game Over", canvas.width / 2 - 100, canvas.height / 2 - 60);
+
+        if (score > highScore) {
+          highScore = score;
+          localStorage.setItem("highScore", highScore);
+        }
+        highScoreDisplay.textContent = `High Score: ${highScore}`;
+        showRestartButton();
+      } else {
+        requestAnimationFrame(draw);
+      }
+
+      frameTimer++;
+      if (frameTimer % 10 === 0) {
+        frameIndex = (frameIndex + 1) % birdFrames.length;
+      }
+    }
+
+    function showRestartButton() {
+      restartButton.style.display = "block";
+    }
+
+    function startGame() {
+      startButton.style.display = "none";
+      restartButton.style.display = "none";
+      bgMusic.currentTime = 0;
+      bgMusic.play().catch(err => console.log("BG Music error:", err));
+      resetGame();
+    }
+
+    function resetGame() {
+      resizeCanvas();
+      bird.y = 150;
+      bird.velocity = 0;
+      pipes = [{ x: canvas.width, y: Math.floor(Math.random() * -200) }];
+      score = 0;
+      gameOver = false;
+      frameIndex = 0;
+      frameTimer = 0;
+      draw();
+    }
+
+    startButton.addEventListener("click", startGame);
+    startButton.addEventListener("touchstart", e => { e.preventDefault(); startGame(); }, { passive: false });
+    restartButton.addEventListener("click", startGame);
+    restartButton.addEventListener("touchstart", e => { e.preventDefault(); startGame(); }, { passive: false });
+  </script>
+</body>
+</html>
