@@ -1,21 +1,53 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Go Bird</title>
   <style>
-    body {
+    html, body {
       margin: 0;
-      overflow: hidden;
+      padding: 0;
+      height: 100%;
       font-family: 'Segoe UI', sans-serif;
       background: #70c5ce;
     }
-    canvas {
+
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .ad-slot {
+      width: 100%;
+      height: 60px;
+      max-height: 15vh;
+      text-align: center;
+      background: transparent;
+    }
+
+    .ad-slot ins {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    #gameWrapper {
+      flex: 1;
+      position: relative;
+      width: 100%;
+      overflow: hidden;
+      background: #70c5ce;
+    }
+
+    #gameCanvas {
+      width: 100%;
+      height: 100%;
       display: block;
       background: url('https://raw.githubusercontent.com/sourabhv/FlapPyBird/master/assets/sprites/background-day.png') no-repeat center center;
       background-size: cover;
     }
+
     .game-button {
       position: absolute;
       top: 50%;
@@ -32,11 +64,16 @@
       transition: transform 0.2s, box-shadow 0.2s;
       z-index: 10;
     }
+
     .game-button:hover {
       transform: translate(-50%, -52%);
       box-shadow: 0 6px 14px rgba(0, 0, 0, 0.4);
     }
-    #restartButton { display: none; }
+
+    #restartButton {
+      display: none;
+    }
+
     #highScoreDisplay {
       position: absolute;
       top: 10px;
@@ -50,15 +87,46 @@
       z-index: 5;
     }
   </style>
+
+  <!-- AdSense -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+</head>
+<body>
+
+  <!-- TOP AD -->
+  <div class="ad-slot">
+    <ins class="adsbygoogle"
+         data-ad-client="7617541164429108/6575688619"
+         data-ad-slot="7617541164429108/65756886191"
+         data-ad-format="auto"
+         data-full-width-responsive="true"></ins>
+    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+  </div>
+
+  <!-- FULL SCREEN GAME -->
+  <div id="gameWrapper">
+    <canvas id="gameCanvas"></canvas>
+    <div id="highScoreDisplay">High Score: 0</div>
+    <button id="startButton" class="game-button">Start Game</button>
+    <button id="restartButton" class="game-button">Restart Game</button>
+  </div>
+
+  <!-- BOTTOM AD -->
+  <div class="ad-slot">
+    <ins class="adsbygoogle"
+         data-ad-client="7617541164429108/6575688619"
+         data-ad-slot="7617541164429108/6575688619"
+         data-ad-format="auto"
+         data-full-width-responsive="true"></ins>
+    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+  </div>
+
+  <!-- Audio -->
   <audio id="bgMusic" src="https://cdn.pixabay.com/audio/2023/03/27/audio_11b8a7f5b2.mp3" loop></audio>
   <audio id="flapSound" src="https://cdn.pixabay.com/audio/2022/03/26/audio_b6e012a0d5.mp3"></audio>
   <audio id="scoreSound" src="https://cdn.pixabay.com/audio/2022/03/15/audio_73515f6bc1.mp3"></audio>
-</head>
-<body>
-  <canvas id="gameCanvas"></canvas>
-  <div id="highScoreDisplay">High Score: 0</div>
-  <button id="startButton" class="game-button">Start Game</button>
-  <button id="restartButton" class="game-button">Restart Game</button>
+
+  <!-- Script -->
   <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
@@ -73,22 +141,13 @@
     let highScore = localStorage.getItem("highScore") || 0;
     highScoreDisplay.textContent = `High Score: ${highScore}`;
 
-    function playSound(sound) {
-      if (!sound) return;
-      try {
-        sound.currentTime = 0;
-        sound.play();
-      } catch (err) {
-        console.error("Sound error:", err);
-      }
+    function resizeCanvas() {
+      canvas.width = canvas.clientWidth;
+      canvas.height = canvas.clientHeight;
     }
 
-    function resizeCanvas() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    }
-    resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener("load", resizeCanvas);
+    window.addEventListener("resize", resizeCanvas);
 
     const birdFrames = [
       "https://raw.githubusercontent.com/sourabhv/FlapPyBird/master/assets/sprites/yellowbird-upflap.png",
@@ -108,6 +167,16 @@
     let gameOver = false;
     let frameIndex = 0;
     let frameTimer = 0;
+
+    function playSound(sound) {
+      if (!sound) return;
+      try {
+        sound.currentTime = 0;
+        sound.play();
+      } catch (err) {
+        console.error("Sound error:", err);
+      }
+    }
 
     function jumpOrRestart() {
       if (gameOver) {
@@ -186,7 +255,6 @@
           localStorage.setItem("highScore", highScore);
         }
         highScoreDisplay.textContent = `High Score: ${highScore}`;
-
         showRestartButton();
       } else {
         requestAnimationFrame(draw);
@@ -211,6 +279,7 @@
     }
 
     function resetGame() {
+      resizeCanvas();
       bird.y = 150;
       bird.velocity = 0;
       pipes = [{ x: canvas.width, y: Math.floor(Math.random() * -200) }];
